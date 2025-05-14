@@ -13,57 +13,64 @@ class CardiacFailureModel:
         self.input_shape = input_shape
         self.num_classes = num_classes
         self.model = self._build_model()
-    
+
     def _build_model(self):
-        """Build a custom CNN model architecture."""
+        """Build a custom CNN model architecture with enhanced capacity."""
         model = models.Sequential([
-            # First Convolutional Block
-            layers.Conv2D(32, (3, 3), activation='relu', input_shape=self.input_shape),
+            # Input Layer
+            layers.Input(shape=self.input_shape),
+
+            # First Convolutional Block - increased filters
+            layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
             layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
             layers.Dropout(0.25),
-            
-            # Second Convolutional Block
-            layers.Conv2D(64, (3, 3), activation='relu'),
+
+            # Second Convolutional Block - increased filters
+            layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
             layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
             layers.Dropout(0.25),
-            
-            # Third Convolutional Block
-            layers.Conv2D(128, (3, 3), activation='relu'),
+
+            # Third Convolutional Block - increased filters
+            layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
             layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
             layers.Dropout(0.25),
-            
-            # Fourth Convolutional Block
-            layers.Conv2D(256, (3, 3), activation='relu'),
+
+            # Fourth Convolutional Block - increased filters
+            layers.Conv2D(512, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(512, (3, 3), activation='relu', padding='same'),
             layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
             layers.Dropout(0.25),
-            
-            # Flatten and Dense Layers
+
+            # Flatten and Dense Layers - increased capacity
             layers.Flatten(),
-            layers.Dense(512, activation='relu'),
+            layers.Dense(1024, activation='relu'),
             layers.BatchNormalization(),
             layers.Dropout(0.5),
-            
-            layers.Dense(256, activation='relu'),
+
+            layers.Dense(512, activation='relu'),
             layers.BatchNormalization(),
             layers.Dropout(0.3),
-            
+
             # Output Layer
             layers.Dense(self.num_classes, activation='sigmoid')
         ])
-        
+
         # Compile model
         model.compile(
             optimizer=Adam(learning_rate=0.001),
             loss='binary_crossentropy',
             metrics=['accuracy', tf.keras.metrics.AUC()]
         )
-        
+
         return model
-    
+
     def train(self, train_dataset, val_dataset, epochs=10, callbacks=None):
         """Train the model."""
         history = self.model.fit(
@@ -73,19 +80,19 @@ class CardiacFailureModel:
             callbacks=callbacks
         )
         return history
-    
+
     def evaluate(self, test_dataset):
         """Evaluate the model."""
         return self.model.evaluate(test_dataset)
-    
+
     def predict(self, image):
         """Make predictions on new images."""
         return self.model.predict(image)
-    
+
     def save(self, path):
-        """Save the model."""
-        self.model.save(path)
-    
+        """Save the model in SavedModel format."""
+        self.model.save(path, save_format='tf')
+
     def load(self, path):
         """Load a saved model."""
         self.model = models.load_model(path)
@@ -94,10 +101,10 @@ class CardiacFailureModel:
     def _get_architecture_specific_layers(self, base_model_name):
         """
         Get architecture-specific layers for different pre-trained models.
-        
+
         Args:
             base_model_name (str): Name of the pre-trained model
-            
+
         Returns:
             list: List of layers to be added on top of the base model
         """
@@ -129,7 +136,7 @@ class CardiacFailureModel:
     def create_pretrained_model(self, base_model_name='efficientnetb0', fine_tune_layers=0):
         """
         Create a model based on a pre-trained architecture.
-        
+
         Args:
             base_model_name (str): Name of the pre-trained model to use. Options:
                 - 'efficientnetb0': EfficientNetB0 (default)
@@ -196,7 +203,7 @@ class CardiacFailureModel:
         Fine-tune the pre-trained model in two phases:
         1. Train only the top layers
         2. Fine-tune the unfrozen layers
-        
+
         Args:
             train_dataset: Training dataset
             val_dataset: Validation dataset
@@ -207,7 +214,7 @@ class CardiacFailureModel:
         # Phase 1: Train only the top layers
         print("Phase 1: Training top layers...")
         history1 = self.train(train_dataset, val_dataset, epochs=epochs, callbacks=callbacks)
-        
+
         # Phase 2: Fine-tune the unfrozen layers
         print("Phase 2: Fine-tuning unfrozen layers...")
         # Recompile with a lower learning rate for fine-tuning
@@ -216,7 +223,7 @@ class CardiacFailureModel:
             loss='binary_crossentropy',
             metrics=['accuracy', tf.keras.metrics.AUC()]
         )
-        
+
         history2 = self.train(train_dataset, val_dataset, epochs=fine_tune_epochs, callbacks=callbacks)
-        
+
         return history1, history2 

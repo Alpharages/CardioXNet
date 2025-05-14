@@ -2,10 +2,10 @@ import os
 import numpy as np
 import pandas as pd
 import cv2
-from PIL import Image
 from tqdm import tqdm
 import albumentations as A
 from pathlib import Path
+import shutil
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 
@@ -19,28 +19,36 @@ class ChestXRayPreprocessor:
         self.output_dir = Path(output_dir if output_dir is not None else os.getenv('PROCESSED_DATA_DIR', '../../data/processed'))
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Define image transformations for training
+        # Define enhanced image transformations for training
         self.train_transform = A.Compose([
             A.Resize(224, 224),
-            A.RandomRotate90(p=0.5),
-            A.Flip(p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=45, p=0.5),
+            A.RandomRotate90(p=0.6),
+            A.HorizontalFlip(p=0.6),
+            A.VerticalFlip(p=0.3),  # Added vertical flip
+            A.Affine(scale=(0.8, 1.2), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-60, 60), p=0.7),
             A.OneOf([
-                A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.5),
-                A.GridDistortion(p=0.5),
-                A.OpticalDistortion(distort_limit=1, shift_limit=0.5, p=0.5),
-            ], p=0.3),
+                A.ElasticTransform(alpha=150, sigma=150 * 0.05, p=0.6),
+                A.GridDistortion(p=0.6),
+                A.OpticalDistortion(distort_limit=1.2, p=0.6),
+                A.Affine(scale=(0.8, 1.2), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-45, 45), p=0.6),
+            ], p=0.5),
             A.OneOf([
-                A.RandomBrightnessContrast(p=0.5),
-                A.RandomGamma(p=0.5),
-            ], p=0.3),
-            A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.6),
+                A.RandomGamma(gamma_limit=(80, 120), p=0.6),
+                A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.6),
+                A.CLAHE(clip_limit=4.0, p=0.6),
+            ], p=0.5),
+            A.OneOf([
+                A.CoarseDropout(num_holes_range=(1,8), hole_height_range=(8, 32), hole_width_range=(8, 32), p=0.6),
+                A.GaussNoise(p=0.6),
+            ], p=0.4),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ])
 
         # Define image transformations for validation/test
         self.val_transform = A.Compose([
             A.Resize(224, 224),
-            A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ])
 
     def load_metadata(self, metadata_path):
@@ -62,18 +70,30 @@ class ChestXRayPreprocessor:
             print(f"Error processing {image_path}: {e}")
             return None
 
+    def delete_old_processed_data(self):
+        """Delete the old processed dataset directory if it exists."""
+        if self.output_dir.exists():
+            print(f"Deleting old processed data from {self.output_dir}")
+            shutil.rmtree(self.output_dir)
+            print("Old processed data deleted successfully")
+
     def preprocess_dataset(self, metadata_path, image_dir):
         """Preprocess the entire dataset."""
-        # Load metadata
-        metadata = self.load_metadata(metadata_path)
-
+        # Delete old processed data first
+        self.delete_old_processed_data()
+        
         # Create processed data directories
         train_dir = self.output_dir / 'train'
         val_dir = self.output_dir / 'val'
         test_dir = self.output_dir / 'test'
 
-        for dir_path in [train_dir, val_dir, test_dir]:
-            dir_path.mkdir(exist_ok=True)
+        # Create all directories first
+        for dir_path in [self.output_dir, train_dir, val_dir, test_dir]:
+            dir_path.mkdir(parents=True, exist_ok=True)
+            print(f"Created directory: {dir_path}")
+
+        # Load metadata
+        metadata = self.load_metadata(metadata_path)
 
         # Split data
         train_df, temp_df = train_test_split(metadata, test_size=0.3, random_state=42)
@@ -103,7 +123,7 @@ class ChestXRayPreprocessor:
 
                     # Add to processed data
                     split_data.append({
-                        'image_path': str(output_path),
+                        'image_path': str(output_path) + '.npy',  # Add .npy extension to match the saved file
                         'labels': int(row['label']),  # Convert label to integer
                         'split': split_name
                     })
