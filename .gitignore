@@ -6,4 +6,5 @@ data/images
 data/processed
 __pycache__
 results
+.DS_Store
 
