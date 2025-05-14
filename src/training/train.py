@@ -176,7 +176,10 @@ def main():
         # Calculate class weights to handle potential class imbalance
         print("\nCalculating class weights...")
         train_labels = []
-        for _, labels in train_dataset:
+        steps = len(processed_metadata[processed_metadata['split'] == 'train']) // batch_size
+        for i, (_, labels) in enumerate(train_dataset):
+            if i >= steps:
+                break
             train_labels.extend(labels.numpy().flatten())
 
         # Count occurrences of each class
