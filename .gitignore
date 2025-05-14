@@ -2,6 +2,7 @@
 # Environment variables
 .env
 .env.local
+data/images
 data/processed
 __pycache__
 results
