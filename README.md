@@ -146,12 +146,12 @@ data/
 
 1. Preprocess the dataset:
 ```bash
-python src/data/preprocess.py
+python -m src.data.preprocess
 ```
 
 2. Train the model:
 ```bash
-python src/training/train.py
+python -m src.training.train
 ```
 
 ### Monitoring Training with TensorBoard
