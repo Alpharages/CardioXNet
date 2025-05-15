@@ -1,18 +1,42 @@
+# Standard library imports
 import os
-import tensorflow as tf
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+# Third-party imports
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import tensorflow as tf
 from dotenv import load_dotenv
+from sklearn.model_selection import train_test_split
+
+# Local imports
+from src.data.preprocess import ChestXRayPreprocessor
+from src.models.cardiac_model import CardiacFailureModel
+from src.utils.evaluation import evaluate_model
 
 # Load environment variables
 load_dotenv()
 
-from src.data.preprocess import ChestXRayPreprocessor
-from src.models.cardiac_model import CardiacFailureModel
-from src.utils.evaluation import evaluate_model
+def configure_gpu():
+    """Configure GPU settings for TensorFlow.
+    
+    Returns:
+        bool: True if GPU is available and configured successfully, False otherwise.
+    """
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if physical_devices:
+        try:
+            for device in physical_devices:
+                tf.config.experimental.set_memory_growth(device, True)
+            print(f"Found {len(physical_devices)} GPU(s). GPU memory growth enabled.")
+            return True
+        except RuntimeError as e:
+            print(f"Error configuring GPU: {e}")
+            return False
+    else:
+        print("No GPU found. Running on CPU.")
+        return False
 
 def create_dataset(metadata_path, batch_size=32, split='train'):
     """Create TensorFlow dataset from processed data."""
@@ -81,6 +105,9 @@ def create_dataset(metadata_path, batch_size=32, split='train'):
 
 def main():
     try:
+        # Configure GPU first
+        gpu_available = configure_gpu()
+        
         # Set up paths
         base_dir = Path(__file__).parent.parent.parent
 
@@ -276,7 +303,7 @@ def main():
         for metric, value in metrics_summary.items():
             print(f"{metric}: {value:.4f}")
 
-        # Save final model in Keras format
+        # Save the final model in Keras format
         model.save(results_dir / 'final_model.keras')
         print("\nTraining and evaluation complete!")
         print(f"\nTo view TensorBoard, run: tensorboard --logdir={log_dir}")
