@@ -22,26 +22,44 @@ class ChestXRayPreprocessor:
         # Define enhanced image transformations for training
         self.train_transform = A.Compose([
             A.Resize(224, 224),
-            A.RandomRotate90(p=0.6),
-            A.HorizontalFlip(p=0.6),
-            A.VerticalFlip(p=0.3),  # Added vertical flip
-            A.Affine(scale=(0.8, 1.2), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-60, 60), p=0.7),
+            A.RandomRotate90(p=0.8),
+            A.HorizontalFlip(p=0.8),
+            A.VerticalFlip(p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=45, p=0.8),
+            A.Affine(
+                scale=(0.8, 1.2),
+                translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
+                rotate=(-60, 60),
+                p=0.8
+            ),
             A.OneOf([
-                A.ElasticTransform(alpha=150, sigma=150 * 0.05, p=0.6),
-                A.GridDistortion(p=0.6),
-                A.OpticalDistortion(distort_limit=1.2, p=0.6),
-                A.Affine(scale=(0.8, 1.2), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-45, 45), p=0.6),
-            ], p=0.5),
+                A.ElasticTransform(alpha=150, sigma=150 * 0.05, p=0.7),
+                A.GridDistortion(p=0.7),
+                A.OpticalDistortion(distort_limit=1.2, p=0.7),
+                A.Affine(scale=(0.8, 1.2), translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, rotate=(-45, 45), p=0.7),
+            ], p=0.7),
             A.OneOf([
-                A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.6),
-                A.RandomGamma(gamma_limit=(80, 120), p=0.6),
-                A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.6),
-                A.CLAHE(clip_limit=4.0, p=0.6),
-            ], p=0.5),
+                A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=0.7),
+                A.RandomGamma(gamma_limit=(70, 130), p=0.7),
+                A.HueSaturationValue(hue_shift_limit=30, sat_shift_limit=40, val_shift_limit=30, p=0.7),
+                A.CLAHE(clip_limit=4.0, p=0.7),
+            ], p=0.7),
             A.OneOf([
-                A.CoarseDropout(num_holes_range=(1,8), hole_height_range=(8, 32), hole_width_range=(8, 32), p=0.6),
-                A.GaussNoise(p=0.6),
-            ], p=0.4),
+                A.CoarseDropout(
+                    num_holes_range=(1, 12),
+                    hole_height_range=(8, 32),
+                    hole_width_range=(8, 32),
+                    fill=0,
+                    p=0.7
+                ),
+                A.GaussNoise(
+                    std_range=(0.0124, 0.0277),
+                    mean_range=(0, 0),
+                    per_channel=True,
+                    p=0.7
+                ),
+                A.GaussianBlur(blur_limit=(3, 7), p=0.7),
+            ], p=0.7),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ])
 

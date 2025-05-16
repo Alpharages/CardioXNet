@@ -189,10 +189,12 @@ def main():
         for layer in model.model.layers:
             if isinstance(layer, tf.keras.layers.Dense):
                 layer.kernel_regularizer = tf.keras.regularizers.l2(0.0001)
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                layer.kernel_regularizer = tf.keras.regularizers.l2(0.0001)
 
         # Recompile the model with the added regularization
         model.model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),  # Lower learning rate
             loss='binary_crossentropy',
             metrics=['accuracy', tf.keras.metrics.AUC()]
         )
@@ -240,23 +242,23 @@ def main():
             ),
             # Early stopping with increased patience
             tf.keras.callbacks.EarlyStopping(
-                monitor='val_accuracy',  # Monitor accuracy instead of loss
-                patience=10,  # Increased patience
+                monitor='val_accuracy',
+                patience=20,  # Increased patience
                 restore_best_weights=True
             ),
             # Enhanced TensorBoard callback
             tensorboard_callback,
-            # Cosine decay learning rate scheduler
+            # Cosine decay learning rate scheduler with warmup
             tf.keras.callbacks.LearningRateScheduler(
-                lambda epoch, lr: float(lr * np.cos(epoch / 50 * np.pi / 2))
+                lambda epoch, lr: float(lr * np.cos(epoch / 150 * np.pi / 2))
                 if epoch > 0 else float(lr)
             ),
             # Backup learning rate reduction on plateau
             tf.keras.callbacks.ReduceLROnPlateau(
                 monitor='val_loss',
-                factor=0.2,
-                patience=5,  # Increased patience
-                min_lr=1e-7  # Lower minimum learning rate
+                factor=0.5,  # More gradual reduction
+                patience=8,  # Increased patience
+                min_lr=1e-7
             )
         ]
 
@@ -267,18 +269,18 @@ def main():
         print(f"Steps per epoch: {len(processed_metadata[processed_metadata['split'] == 'train']) // batch_size}")
         print(f"Validation steps: {len(processed_metadata[processed_metadata['split'] == 'val']) // batch_size}")
         print(f"Batch size: {batch_size}")
-        print(f"Number of epochs: 60")
+        print(f"Number of epochs: 150")  # Increased epochs
         print("\nTraining progress:")
 
         history = model.model.fit(
             train_dataset,
             validation_data=val_dataset,
-            epochs=60,  # Increased epochs for better training
+            epochs=150,  # Increased epochs
             callbacks=callbacks,
             class_weight=class_weights,
             steps_per_epoch=len(processed_metadata[processed_metadata['split'] == 'train']) // batch_size,
             validation_steps=len(processed_metadata[processed_metadata['split'] == 'val']) // batch_size,
-            verbose=1  # Ensure verbose output
+            verbose=1
         )
 
         # Print training summary
@@ -286,8 +288,8 @@ def main():
         print("\nFinal metrics:")
         print(f"Training accuracy: {history.history['accuracy'][-1]:.4f}")
         print(f"Validation accuracy: {history.history['val_accuracy'][-1]:.4f}")
-        print(f"Training AUC: {history.history['auc'][-1]:.4f}")
-        print(f"Validation AUC: {history.history['val_auc'][-1]:.4f}")
+        print(f"Training AUC: {history.history['auc_1'][-1]:.4f}")
+        print(f"Validation AUC: {history.history['val_auc_1'][-1]:.4f}")
 
         # Evaluate the model
         print("\nEvaluating model on test set...")
