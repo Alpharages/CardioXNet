@@ -234,6 +234,18 @@ The model is evaluated using a comprehensive evaluation pipeline that includes:
    - Metrics summary saved as text file
    - Best models saved based on both accuracy and AUC
 
+4. **Evaluation Resumption**:
+   If the evaluation process is interrupted, you can resume it using:
+   ```bash
+   python -m src.utils.resume_evaluation
+   ```
+   This will:
+   - Load the best saved model (tries `best_model_accuracy.keras` first, then `best_model_auc.keras`, then `final_model.keras`)
+   - Recreate the test dataset
+   - Run the complete evaluation process
+   - Generate all metrics and visualizations
+   - Save results in the same location as the original evaluation
+
 The evaluation process automatically runs after training and provides a comprehensive assessment of the model's performance on the test dataset.
 
 ## Contributing

@@ -293,6 +293,10 @@ def main():
 
         # Evaluate the model
         print("\nEvaluating model on test set...")
+        # Configure test dataset for efficient evaluation
+        test_dataset = test_dataset.prefetch(tf.data.AUTOTUNE)
+        test_dataset = test_dataset.cache()  # Cache the dataset in memory
+        
         metrics_summary = evaluate_model(
             model.model,
             test_dataset,

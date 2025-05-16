@@ -11,6 +11,7 @@ from sklearn.metrics import (
 )
 import tensorflow as tf
 from pathlib import Path
+from tqdm import tqdm
 
 class ModelEvaluator:
     def __init__(self, model, test_dataset, results_dir='../../results'):
@@ -25,14 +26,21 @@ class ModelEvaluator:
         self._get_predictions()
     
     def _get_predictions(self):
-        """Get predictions and true labels from test dataset."""
-        for images, labels in self.test_dataset:
-            predictions = self.model.predict(images)
+        """Get predictions and true labels from test dataset efficiently."""
+        print("\nGenerating predictions...")
+        # Calculate total steps for progress bar
+        total_steps = tf.data.experimental.cardinality(self.test_dataset).numpy()
+        
+        # Use tqdm for progress tracking
+        for images, labels in tqdm(self.test_dataset, total=total_steps, desc="Evaluating batches"):
+            # Process in batches
+            predictions = self.model.predict(images, verbose=0)  # Disable internal progress bar
             self.y_pred.extend(predictions.flatten())
             self.y_true.extend(labels.numpy().flatten())
         
         self.y_pred = np.array(self.y_pred)
         self.y_true = np.array(self.y_true)
+        print(f"Processed {len(self.y_true)} samples")
     
     def plot_confusion_matrix(self, threshold=0.5):
         """Plot confusion matrix."""
@@ -134,15 +142,24 @@ class ModelEvaluator:
         """Run comprehensive evaluation."""
         print("Generating evaluation metrics and visualizations...")
         
-        # Generate metrics
-        roc_auc = self.plot_roc_curve()
-        avg_precision = self.plot_precision_recall_curve()
-        self.plot_confusion_matrix()
-        report = self.generate_classification_report()
-        self.plot_prediction_distribution()
+        # Generate metrics in parallel using ThreadPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
         
-        if history:
-            self.plot_training_history(history)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Submit all plotting tasks
+            roc_future = executor.submit(self.plot_roc_curve)
+            pr_future = executor.submit(self.plot_precision_recall_curve)
+            cm_future = executor.submit(self.plot_confusion_matrix)
+            report_future = executor.submit(self.generate_classification_report)
+            dist_future = executor.submit(self.plot_prediction_distribution)
+            
+            if history:
+                history_future = executor.submit(self.plot_training_history, history)
+            
+            # Get results
+            roc_auc = roc_future.result()
+            avg_precision = pr_future.result()
+            report = report_future.result()
         
         # Save summary metrics
         summary = {
